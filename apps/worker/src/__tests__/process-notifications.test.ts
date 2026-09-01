@@ -2,7 +2,10 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@assessment/database";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NotificationSender } from "../notification-provider.js";
-import { processNotificationBatch } from "../process-notifications.js";
+import {
+  MAX_NOTIFICATION_ATTEMPTS,
+  processNotificationBatch,
+} from "../process-notifications.js";
 
 async function resetJobs() {
   await prisma.notificationJob.deleteMany();
@@ -59,5 +62,63 @@ describe("notification worker", () => {
     const storedJob = await prisma.notificationJob.findFirstOrThrow();
     expect(storedJob.processedAt).toBeInstanceOf(Date);
     expect(storedJob.attemptCount).toBe(1);
+  });
+
+  it("keeps a failed notification eligible for retry", async () => {
+    const sender: NotificationSender = {
+      sendStatusUpdate: vi
+        .fn()
+        .mockRejectedValue(new Error("provider unavailable")),
+    };
+
+    const result = await processNotificationBatch(prisma, sender, {
+      info: vi.fn(),
+      error: vi.fn(),
+    });
+
+    expect(result).toEqual({ found: 1, delivered: 0, failed: 1 });
+
+    const storedJob = await prisma.notificationJob.findFirstOrThrow();
+    expect(storedJob.processedAt).toBeNull();
+    expect(storedJob.deadLetteredAt).toBeNull();
+    expect(storedJob.attemptCount).toBe(1);
+    expect(storedJob.nextAttemptAt).toBeInstanceOf(Date);
+    expect(storedJob.lastError).toBe("provider unavailable");
+  });
+
+  it("dead-letters a notification after the retry limit", async () => {
+    const job = await prisma.notificationJob.findFirstOrThrow();
+    await prisma.notificationJob.update({
+      where: { id: job.id },
+      data: {
+        attemptCount: MAX_NOTIFICATION_ATTEMPTS - 1,
+        nextAttemptAt: new Date("2026-08-20T08:00:00.000Z"),
+      },
+    });
+
+    const sender: NotificationSender = {
+      sendStatusUpdate: vi
+        .fn()
+        .mockRejectedValue(new Error("provider unavailable")),
+    };
+
+    const result = await processNotificationBatch(prisma, sender, {
+      info: vi.fn(),
+      error: vi.fn(),
+    });
+
+    expect(result).toEqual({ found: 1, delivered: 0, failed: 1 });
+
+    const storedJob = await prisma.notificationJob.findFirstOrThrow();
+    expect(storedJob.attemptCount).toBe(MAX_NOTIFICATION_ATTEMPTS);
+    expect(storedJob.processedAt).toBeNull();
+    expect(storedJob.nextAttemptAt).toBeNull();
+    expect(storedJob.deadLetteredAt).toBeInstanceOf(Date);
+
+    const secondResult = await processNotificationBatch(prisma, sender, {
+      info: vi.fn(),
+      error: vi.fn(),
+    });
+    expect(secondResult).toEqual({ found: 0, delivered: 0, failed: 0 });
   });
 });

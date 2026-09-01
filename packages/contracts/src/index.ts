@@ -11,6 +11,18 @@ export const APPLICATION_STATUSES = [
 
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 
+export const APPLICATION_STATUS_TRANSITIONS: Record<
+  ApplicationStatus,
+  readonly ApplicationStatus[]
+> = {
+  SUBMITTED: ["IN_REVIEW"],
+  IN_REVIEW: ["OFFERED", "DECLINED"],
+  OFFERED: ["APPROVED", "DECLINED"],
+  APPROVED: ["DISBURSED"],
+  DECLINED: [],
+  DISBURSED: [],
+};
+
 export const statusEventSchema = z.object({
   eventId: z.string().trim().min(1).max(100),
   status: z.enum(APPLICATION_STATUSES),

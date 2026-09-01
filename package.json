@@ -10,7 +10,7 @@
   },
   "scripts": {
     "setup": "pnpm install --frozen-lockfile=false && pnpm db:generate && pnpm db:reset",
-    "dev": "cross-env DATABASE_URL=file:./dev.db concurrently --kill-others --names api,web,worker --prefix-colors yellow,green,magenta \"pnpm --filter @assessment/api dev\" \"pnpm --filter @assessment/web dev\" \"pnpm --filter @assessment/worker dev\"",
+    "dev": "cross-env DATABASE_URL=file:./dev.db concurrently --kill-others --names api,web,worker --prefix-colors yellow,green,magenta \"pnpm --filter @assessment/api start\" \"pnpm --filter @assessment/web dev\" \"pnpm --filter @assessment/worker start\"",
     "build": "pnpm --filter @assessment/web build",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "lint": "eslint .",

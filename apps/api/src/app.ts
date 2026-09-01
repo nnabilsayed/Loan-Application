@@ -32,6 +32,7 @@ export function buildApp(options: BuildAppOptions = {}) {
       const application = await getApplication(
         database,
         request.params.applicationId,
+        customerId,
       );
 
       if (!application) {
@@ -59,12 +60,13 @@ export function buildApp(options: BuildAppOptions = {}) {
       );
 
       try {
-        const application = await recordStatusEvent(
+        const result = await recordStatusEvent(
           database,
           request.params.applicationId,
           parsed.data,
         );
-        return reply.code(202).send({ application });
+        const responseCode = result.outcome === "invalid" ? 422 : 202;
+        return reply.code(responseCode).send(result);
       } catch (error) {
         if (error instanceof ApplicationNotFoundError) {
           return reply.code(404).send({ error: "application not found" });
