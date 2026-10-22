@@ -1,4 +1,4 @@
-# Loan application engineering assessment
+# Loan application 
 
 This repository is a small, deliberately imperfect loan application system. Treat it as a system you have inherited: decide what matters most, improve one coherent slice, and explain how you know your changes are safe.
 
